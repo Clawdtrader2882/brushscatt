@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brush the Cat 🐱</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      cursor: none;
+      background: #e8c89a;
+      font-family: 'Outfit', sans-serif;
+      user-select: none;
+    }
+
+    /* ── Cat sits below the title ── */
+    #cat-img {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 220px;
+      bottom: 0;
+      width: 100%;
+      height: calc(100% - 220px);
+      object-fit: contain;
+      object-position: center bottom;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ── Brush cursor ── */
+    #brush-cursor {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      width: 200px;
+      transform: translate(-45px, -155px) rotate(38deg);
+      filter: drop-shadow(1px 2px 5px rgba(0,0,0,0.5));
+      transition: transform 0.08s ease, filter 0.08s, opacity 0.12s ease;
+    }
+    #brush-cursor.pressing {
+      transform: translate(-45px, -148px) rotate(38deg) scale(0.92);
+      filter: drop-shadow(1px 2px 12px rgba(0,0,0,0.7));
+    }
+
+    /* ── Navbar ── */
+    #navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 72px;
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    /* Logo */
+    #logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* Right side of navbar */
+    #nav-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    /* CA pill */
+    #ca-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 999px;
+      padding: 9px 18px;
+      cursor: pointer !important;
+      transition: background 0.15s;
+    }
+    #ca-pill:hover { background: #fff; }
+    #ca-pill .ca-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #4ade80;
+      flex-shrink: 0;
+    }
+    #ca-pill .ca-text {
+      font-size: 13px; font-weight: 700;
+      color: #222;
+    }
+    #ca-pill .ca-copied {
+      font-size: 11px; font-weight: 700;
+      color: #4ade80;
+      display: none;
+    }
+
+    /* X button */
+    #x-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0,0,0,0.06);
+      transition: background 0.15s, transform 0.12s;
+      text-decoration: none;
+      cursor: pointer !important;
+    }
+    #x-link:hover { background: #fff; transform: scale(1.08); }
+    #x-link svg { width: 17px; height: 17px; fill: #111; }
+
+    /* ── Title + counter at top, above the cat ── */
+    #center-hud {
+      position: fixed;
+      top: 88px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+    #game-title {
+      font-size: clamp(40px, 7vw, 80px);
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      -webkit-text-stroke: 2.5px rgba(0,0,0,0.55);
+      text-shadow: 0 4px 24px rgba(0,0,0,0.25);
+      line-height: 1;
+    }
+    #brush-count {
+      font-size: clamp(36px, 6vw, 68px);
+      font-weight: 900;
+      color: #fff;
+      -webkit-text-stroke: 2px rgba(0,0,0,0.45);
+      text-shadow: 0 3px 18px rgba(0,0,0,0.22);
+      line-height: 1;
+      display: inline-block;
+      transition: transform 0.12s ease;
+    }
+
+    /* ── Particles ── */
+    .popup {
+      position: fixed; pointer-events: none; z-index: 600;
+      font-size: 22px; font-weight: 900;
+      color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      animation: floatUp 0.9s cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-70px) scale(1.4); }
+    }
+
+    .hair { position: fixed; pointer-events: none; z-index: 500; border-radius: 999px; }
+
+    .ripple {
+      position: fixed; pointer-events: none; z-index: 400;
+      border-radius: 50%;
+      border: 2px solid rgba(255,220,120,0.8);
+      transform: translate(-50%,-50%) scale(0);
+      animation: rippleOut 0.5s ease-out forwards;
+    }
+    @keyframes rippleOut {
+      to { transform: translate(-50%,-50%) scale(3); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <img id="cat-img" src="cat1.png" alt="" draggable="false" />
+  <img id="brush-cursor" src="brush.png" alt="" draggable="false" />
+
+  <!-- ── Navbar ── -->
+  <nav id="navbar">
+    <img id="logo" src="logo.png" alt="logo" draggable="false" />
+
+    <div id="nav-right">
+      <!-- ══ EDIT: CA address ══ -->
+      <div id="ca-pill" onclick="copyCA()" title="Click to copy CA">
+        <div class="ca-dot"></div>
+        <span class="ca-text" id="ca-address">YOUR_CA_ADDRESS_HERE</span>
+        <span class="ca-copied" id="ca-copied">Copied!</span>
+      </div>
+
+      <!-- ══ EDIT: X link href ══ -->
+      <a id="x-link" href="https://x.com/YOUR_HANDLE_HERE" target="_blank" rel="noopener" title="Follow on X">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ── Center title + counter ── -->
+  <div id="center-hud">
+    <div id="game-title">Brush the Cat</div>
+    <span id="brush-count">0</span>
+  </div>
+
+  <script>
+    /* ── Embedded 128x128 alpha masks (1-bit packed, hex encoded) ── */
+    const MASK_HEX = {
+      'cat1.png': '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000003f0000000000000000000000000000007f000000000000000000000000000000ff800000000000000000000000000001ffc00000000000000000000000000003ffe0000000000000000000000000000ffff0000000000000000000000000003ffff0000000000000000000000000007ffff800000000000000000000000000fffffc00000000000000000000000001fffffc00000000000000000000000003fffffe00000000000000000000000003ffffff00000000000000000000000007ffffff80000000000000000000000007ffffffc000000000000000000000000fffffffe000000000000000000000000fffffffe000000000000000000000001fffffffe000000000000000000000001fffffffc000000000000000000000001fffffffc000000000000000000000003fffffffc000000000000000000000007fffffffc000000000000000000000007fffffffe00000000000000000000000ffffffffe00000000000000000000001ffffffffe00000000000000000000003fffffffff00000000000000000000007fffffffff0000000000000000000000ffffffffff0000000000000000000000fffffffffe0000000000000000000001fffffffffe0000000000000000000001fffffffffc0000000000000000000003fffffffff80000000000000000000003ffffffffe00000000000000000000007ffffffffc00000000000000000000007fffffffe00000000000000000000000fffffffff00000000000000000000003fffffffff00000000000000000000007fffffffff0000000000000000000001ffffffffff0000000000000000000007ffffffffff800000000000000000000fffffffffff800000000000000000003fffffffffff800000000000000000007fffffffffff80000000000000000000ffffffffffff80000000000000000001ffffffffffffc0000000000000000003ffffffffffffc000000000000000000fffffffffffffc000000000000000001fffffffffffffc000000000000000003fffffffffffffc000000000000000007fffffffffffffc00000000000000000ffffffffffffffc00000000000000000ffffffffffffffc00000000000000001ffffffffffffffc00000000000000003ffffffffffffffc00000000000000003ffffffffffffffc00000000000000007ffffffffffffffc00000000000000007ffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000007fffffffffffffff00000000000000007fffffffffffffff80000000000000007fffffffffffffff80000000000000007fffffffffffffff00000000000000007fffffffffffffff00000000000000007fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff00000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffff80000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000ffffffffffffffff0000000000000000ffffffffffffffffc000000000000000ffffffffffffffffe000000000000001fffffffffffffffff000000000000001fffffffffffffffff800000000000001fffffffffffffffff800000000000001fffffffffffffffff800000000000001fffffffffffffffff800000000000001fffffffffffffffff000000000000003fffffffffffffffff000000000000003ffffffffffffff800000000000000003ffffffffffffff800000000000000001ffffffffffffff800000000000000001ffffffffffffff000000000000000000fffffffffffffe0000000000000000007ffffffffffc000000000000000000003ffffffffc00000000000000000000000fffffffc00000000000000000000000007fffff0000000000000000000000000007fffe00000000000000000000000000000ff0000000000000000000000',
+      'cat2.png': '0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000001c0000000000000000000000007800003f000000000000000000000000ff8000ff800000000000000000000001ffffffff800000000000000000000001ffffffff800000000000000000000001ffffffff800000000000000000000001ffffffff800000000000000000000001ffffffff800000000000000000000000ffffffffc00000000000000000000000ffffffffc00000000000000000000003ffffffffe00000000000000000000001ffffffffe00000000000000000000001ffffffffe00000000000000000000001ffffffffe00000000000000000000003ffffffffe00000000000000000000007ffffffffe0000000000000000000000ffffffffff0000000000000000000000ffffffffff8000000000000000000000ffffffffff8000000000000000000003ffffffffffc00000000000000000000fffffffffffc00000000000000000001fffffffffffc00000000000000000003fffffffffffc00000000000000000007fffffffffffc0000000000000000000ffffffffffffc0000000000000000001ffffffffffffc0000000000000000001ffffffffffffc0000000000000000003ffffffffffffc0000000000000000007ffffffffffff8000000000000000001fffffffffffff8000000000000000003fffffffffffff000000000000000000ffffffffffffff000000000000000003fffffffffffffe00000000000000000ffffffffffffffc00000000000000001ffffffffffffffc00000000000000003ffffffffffffff800000000000000007ffffffffffffff80000000000000000fffffffffffffff80000000000000001fffffffffffffff00000000000000003fffffffffffffff00000000000000007fffffffffffffff0000000000000000ffffffffffffffff0000000000000001ffffffffffffffff0000000000000003ffffffffffffffff0000000000000007fffffffffffffffe000000000000000ffffffffffffffffe000000000000000ffffffffffffffffe000000000000001ffffffffffffffffc000000000000003ffffffffffffffffc000000000000003ffffffffffffffff8000000000000007ffffffffffffffff8000000000000007ffffffffffffffff000000000000000ffffffffffffffffc000000000000000ffffffffffffffff8000000000000000fffffffffffffffe0000000000000001fffffffffffffffc0000000000000001fffffffffffffffc0000000000000001fffffffffffffffc0000000000000001fffffffffffffffc0000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000003fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffff80000000000000001fffffffffffffffc0000000000000001fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc00000000000000007ffffffffffffffc00000000000000007ffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffc0000000000000000fffffffffffffffe0000000000000000fffffffffffffffe0000000000000000fffffffffffffffe0000000000000000ffffffffffffffff0000000000000000ffffffffffffffffe000000000000000fffffffffffffffff000000000000000fffffffffffffffff800000000000000fffffffffffffffffc00000000000000fffffffffffffffffc00000000000000fffffffffffffffffc00000000000001fffffffffffffffffc00000000000001fffffffffffffffff800000000000001fffffffffffffffff000000000000001ffffffffffffffc00000000000000001ffffffffffffffc00000000000000001ffffffffffffffc00000000000000000ffffffffffffff8000000000000000007ffffffffffffe0000000000000000003ffffffffff8000000000000000000001ffffffff8000000000000000000000003ffffffc00000000000000000000000000fffff00000000000000000000000000003ffe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    };
+    const MASK_SIZE = 128;
+    const masks = {};
+
+    function hexToBytes(hex) {
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+      }
+      return bytes;
+    }
+
+    for (const [src, hex] of Object.entries(MASK_HEX)) {
+      masks[src] = hexToBytes(hex);
+    }
+
+    const catImg   = document.getElementById('cat-img');
+    const brushEl  = document.getElementById('brush-cursor');
+    const countEl  = document.getElementById('brush-count');
+
+    let brushCount  = 0;
+    let mouseDown   = false;
+    let mouseX      = 0;
+    let mouseY      = 0;
+    let prevX       = 0;
+    let prevY       = 0;
+    let lastTickAt  = 0;
+    let lastSoundAt = 0;
+    let lookBackTimer  = null;
+    let lookBackUntil  = 0;
+    let activeSrc      = 'cat1.png';
+
+    /* ── Coordinate mapping (matches #cat-img CSS) ── */
+    const CAT_TOP_OFFSET = 220;
+    function getCatRect() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight - CAT_TOP_OFFSET;
+      const iw = 1024, ih = 1024;
+      const scale = Math.min(vw / iw, vh / ih);
+      const w = iw * scale, h = ih * scale;
+      // object-position: center bottom → image sits at bottom of container
+      return {
+        x: (vw - w) / 2,
+        y: CAT_TOP_OFFSET + (vh - h),
+        w, h
+      };
+    }
+
+    function isCatPixel(sx, sy) {
+      const mask = masks[activeSrc];
+      if (!mask) return false;
+      const r = getCatRect();
+      if (sx < r.x || sx >= r.x + r.w || sy < r.y || sy >= r.y + r.h) return false;
+      const mx = Math.floor(((sx - r.x) / r.w) * MASK_SIZE);
+      const my = Math.floor(((sy - r.y) / r.h) * MASK_SIZE);
+      if (mx < 0 || mx >= MASK_SIZE || my < 0 || my >= MASK_SIZE) return false;
+      const bitIndex = my * MASK_SIZE + mx;
+      const byteIndex = bitIndex >> 3;
+      const bitOffset = 7 - (bitIndex & 7);
+      return (mask[byteIndex] >> bitOffset) & 1;
+    }
+
+    /* ── Cursor + brushing ── */
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      brushEl.style.left = mouseX + 'px';
+      brushEl.style.top  = mouseY + 'px';
+
+      if (mouseDown) {
+        const dx = mouseX - prevX;
+        const dy = mouseY - prevY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 6) {
+          doBrushTick();
+          prevX = mouseX;
+          prevY = mouseY;
+        }
+      }
+    });
+
+    document.addEventListener('mousedown', () => {
+      mouseDown = true;
+      prevX = mouseX;
+      prevY = mouseY;
+      brushEl.classList.add('pressing');
+    });
+
+    document.addEventListener('mouseup', () => {
+      mouseDown = false;
+      brushEl.classList.remove('pressing');
+      resetCatFaceSoon();
+    });
+
+    document.addEventListener('mouseleave', () => {
+      mouseDown = false;
+      brushEl.classList.remove('pressing');
+      resetCatFaceSoon();
+    });
+
+    function doBrushTick() {
+      const now = performance.now();
+      if (now - lastTickAt < 60) return;
+      if (!isCatPixel(mouseX, mouseY)) return;
+
+      lastTickAt = now;
+      brushCount++;
+      countEl.textContent = brushCount;
+      countEl.style.transform = 'scale(1.35)';
+      setTimeout(() => { countEl.style.transform = 'scale(1)'; }, 130);
+
+      const [r, g, b] = furColor();
+      spawnHairs(mouseX, mouseY, r, g, b);
+      spawnRipple(mouseX, mouseY);
+      spawnPopup(mouseX, mouseY);
+
+      if (now - lastSoundAt > 110) {
+        playBrushSound();
+        lastSoundAt = now;
+      }
+
+      maybeLookBack(now);
+    }
+
+    /* ── Fur palette ── */
+    const FUR_PALETTE = [
+      [195,130,60],[178,110,48],[212,155,72],
+      [165,100,45],[222,170,95],[168,118,52],
+      [200,140,65],[185,122,55],
+    ];
+    function furColor() {
+      return FUR_PALETTE[Math.floor(Math.random() * FUR_PALETTE.length)];
+    }
+
+    /* ── +1 popup ── */
+    function spawnPopup(x, y) {
+      const el = document.createElement('div');
+      el.className   = 'popup';
+      el.textContent = '+1';
+      el.style.left  = (x - 12) + 'px';
+      el.style.top   = (y - 20) + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+
+    /* ── Ripple ── */
+    function spawnRipple(x, y) {
+      const el = document.createElement('div');
+      el.className    = 'ripple';
+      el.style.left   = x + 'px';
+      el.style.top    = y + 'px';
+      el.style.width  = '40px';
+      el.style.height = '40px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 520);
+    }
+
+    /* ── Hair particles ── */
+    function spawnHairs(x, y, r, g, b) {
+      const count = 7 + Math.floor(Math.random() * 7);
+
+      for (let i = 0; i < count; i++) {
+        const hair = document.createElement('div');
+        hair.className = 'hair';
+
+        const w = 1 + Math.random() * 1.5;
+        const h = 18 + Math.random() * 38;
+        hair.style.width  = w + 'px';
+        hair.style.height = h + 'px';
+
+        const rc = clamp(r + randRange(-25, 25));
+        const gc = clamp(g + randRange(-25, 25));
+        const bc = clamp(b + randRange(-15, 15));
+        hair.style.background = `rgb(${rc},${gc},${bc})`;
+
+        const start = sampleCatPoint(x, y, 26, 14, 16);
+        if (!start) continue;
+
+        let px  = start.x;
+        let py  = start.y;
+        let vx  = randRange(-3, 3);
+        let vy  = randRange(-4, -1);
+        let rot = randRange(0, 360);
+        let rv  = randRange(-12, 12);
+
+        hair.style.left      = px + 'px';
+        hair.style.top       = py + 'px';
+        hair.style.transform = `rotate(${rot}deg)`;
+        hair.style.opacity   = '0.9';
+        document.body.appendChild(hair);
+
+        let done = false;
+
+        setTimeout(() => {
+          const tick = () => {
+            if (done) return;
+            vy  += 0.28;
+            vx  *= 0.985;
+            px  += vx;
+            py  += vy;
+            rot += rv;
+            rv  *= 0.96;
+
+            if (!isCatPixel(px, py)) {
+              done = true;
+              hair.style.left      = px + 'px';
+              hair.style.top       = py + 'px';
+              hair.style.transform = `rotate(${rot}deg)`;
+              setTimeout(() => {
+                hair.style.transition = 'opacity 0.7s';
+                hair.style.opacity = '0';
+                setTimeout(() => hair.remove(), 750);
+              }, 80);
+              return;
+            }
+
+            hair.style.left      = px + 'px';
+            hair.style.top       = py + 'px';
+            hair.style.transform = `rotate(${rot}deg)`;
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }, Math.random() * 80);
+      }
+    }
+
+    function sampleCatPoint(cx, cy, xRange, yRange, tries) {
+      for (let i = 0; i < tries; i++) {
+        const px = cx + randRange(-xRange, xRange);
+        const py = cy + randRange(-yRange, yRange);
+        if (isCatPixel(px, py)) return { x: px, y: py };
+      }
+      return null;
+    }
+
+    /* ── Look-back ── */
+    function maybeLookBack(now) {
+      if (now < lookBackUntil) return;
+      if (Math.random() > 0.06) return;
+      const duration = randRange(300, 600);
+      lookBackUntil = now + duration;
+      setActiveCat('cat2.png');
+      clearTimeout(lookBackTimer);
+      lookBackTimer = setTimeout(() => setActiveCat('cat1.png'), duration);
+    }
+
+    function resetCatFaceSoon() {
+      clearTimeout(lookBackTimer);
+      lookBackTimer = setTimeout(() => {
+        setActiveCat('cat1.png');
+        lookBackUntil = 0;
+      }, 150);
+    }
+
+    function setActiveCat(src) {
+      activeSrc = src;
+      catImg.src = src;
+    }
+
+    /* ── Brush sound ── */
+    function playBrushSound() {
+      try {
+        const ac  = new (window.AudioContext || window.webkitAudioContext)();
+        const len = Math.floor(ac.sampleRate * 0.22);
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len) * 0.8;
+        }
+        const src  = ac.createBufferSource(); src.buffer = buf;
+        const hp   = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3500;
+        const bp   = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 5000; bp.Q.value = 0.8;
+        const gain = ac.createGain(); gain.gain.value = 0.35;
+        src.connect(hp).connect(bp).connect(gain).connect(ac.destination);
+        src.start();
+        setTimeout(() => ac.close(), 1200);
+      } catch (_) {}
+    }
+
+    /* ── Hide brush cursor over UI elements ── */
+    const uiElements = document.querySelectorAll('#ca-pill, #x-link, #navbar');
+    uiElements.forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        brushEl.style.opacity = '0';
+        document.body.style.cursor = 'auto';
+      });
+      el.addEventListener('mouseleave', () => {
+        brushEl.style.opacity = '1';
+        document.body.style.cursor = 'none';
+      });
+    });
+
+    /* ── Copy CA to clipboard ── */
+    function copyCA() {
+      const full = document.getElementById('ca-address').dataset.full
+                || document.getElementById('ca-address').textContent;
+      navigator.clipboard.writeText(full).then(() => {
+        const copied = document.getElementById('ca-copied');
+        copied.style.display = 'inline';
+        setTimeout(() => { copied.style.display = 'none'; }, 1400);
+      });
+    }
+
+    /* ── Helpers ── */
+    function clamp(v)        { return Math.max(0, Math.min(255, Math.round(v))); }
+    function randRange(a, b) { return a + Math.random() * (b - a); }
+  </script>
+</body>
+</html>
